@@ -178,7 +178,7 @@ public class UserDAO implements UserDAOInterface {
             }
         }
 
-        // 2. Hapus di tabel user utama
+        
         String baseSql = "DELETE FROM user WHERE id = ?";
         try (PreparedStatement pstmtBase = connection.prepareStatement(baseSql)) {
             pstmtBase.setInt(1, id);

@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class BookingDAO implements BookingDAOInterface {
-
     private final Connection connection = DatabaseConnection.getConnection();
     private final MobilDAO mobilDAO = new MobilDAO();
     private final UserDAO userDAO = new UserDAO();
@@ -152,4 +151,38 @@ public List<Booking> findActiveBookings() throws SQLException {
     }
     return list;
 }
+
+@Override
+public List<Booking> findBookingsByPelanggan(int pelangganId) throws SQLException {
+    List<Booking> list = new ArrayList<>();
+    // Menggunakan kolom pelanggan_id sesuai struktur DB kamu
+    String sql = "SELECT * FROM booking WHERE pelanggan_id = ? ORDER BY id_booking DESC";
+    
+    try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+        pstmt.setInt(1, pelangganId);
+        try (ResultSet rs = pstmt.executeQuery()) {
+            while (rs.next()) {
+                list.add(buildBooking(rs));
+            }
+        }
+    }
+    return list;
+}
+
+
+@Override
+public List<Booking> findByStatus(String status) throws SQLException {
+    List<Booking> list = new ArrayList<>();
+    String sql = "SELECT * FROM booking WHERE status = ?";
+    try (PreparedStatement pstmt = connection.prepareStatement(sql)) {
+        pstmt.setString(1, status);
+        try (ResultSet rs = pstmt.executeQuery()) {
+            while (rs.next()) {
+                list.add(buildBooking(rs));
+            }
+        }
+    }
+    return list;
+}
+
 }

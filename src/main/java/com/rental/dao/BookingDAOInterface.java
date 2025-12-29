@@ -17,5 +17,8 @@ public interface BookingDAOInterface {
     List<Booking> findActiveBookings() throws SQLException;
     public List<Booking> findPendingBookings() throws SQLException;
     public void updateStatus(int bookingId, String statusBaru) throws SQLException;
+    List<Booking> findBookingsByPelanggan(int pelangganId) throws SQLException;
+    
+    public List<Booking> findByStatus(String status) throws SQLException;
    
 }

@@ -14,6 +14,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Scanner;
+import java.util.ArrayList;
 
 public class MainApplication {
     private static final UserDAO userDAO = new UserDAO();
@@ -120,19 +121,55 @@ public class MainApplication {
         }
     }
 
-    private static void menuLihatSemuaTransaksi() {
-        try {
-            List<Booking> list = bookingDAO.findAll();
-            System.out.println("\n--- RIWAYAT SEMUA TRANSAKSI ---");
-            if (list.isEmpty()) System.out.println("Belum ada data transaksi.");
-            for (Booking b : list) {
-                System.out.println("ID:" + b.getIdBooking() + " | Pelanggan:" + b.getPelanggan().getNama() + 
-                                   " | Mobil:" + b.getMobil().getModel() + " | Status:" + b.getStatus());
-            }
-        } catch (SQLException e) {
-            System.out.println("Error: " + e.getMessage());
+private static void menuLihatSemuaTransaksi() {
+    try {
+        System.out.println("\n--- LAPORAN SEMUA TRANSAKSI & PENDAPATAN ---");
+        // Mengambil semua data booking dari database
+        List<Booking> semuaBooking = bookingDAO.findAll(); 
+
+        if (semuaBooking.isEmpty()) {
+            System.out.println("Belum ada data transaksi.");
+            return;
         }
+
+        double totalPendapatanMasuk = 0;
+        double totalPotensiPendapatan = 0;
+
+        System.out.println("--------------------------------------------------------------------------------------");
+        System.out.printf("%-5s | %-15s | %-15s | %-12s | %-10s\n", 
+                          "ID", "Pelanggan", "Mobil", "Total", "Status");
+        System.out.println("--------------------------------------------------------------------------------------");
+
+        for (Booking b : semuaBooking) {
+            System.out.printf("%-5d | %-15s | %-15s | Rp%-10.0f | %-10s\n", 
+                              b.getIdBooking(), 
+                              b.getPelanggan().getNama(), 
+                              b.getMobil().getModel(), 
+                              b.getTotalBiaya(), 
+                              b.getStatus());
+            
+            // Logika Pendapatan:
+            // Uang dianggap masuk jika status sudah 'Paid', 'Approved', 'Rented', atau 'Completed'
+            if (!b.getStatus().equalsIgnoreCase("Pending") && !b.getStatus().equalsIgnoreCase("Rejected")) {
+                totalPendapatanMasuk += b.getTotalBiaya();
+            }
+            
+            totalPotensiPendapatan += b.getTotalBiaya();
+        }
+
+        System.out.println("--------------------------------------------------------------------------------------");
+        System.out.println("REKAP KEUANGAN ADMIN:");
+        System.out.println("Total Pendapatan (Sudah Bayar/Selesai) : Rp " + totalPendapatanMasuk);
+        System.out.println("Total Potensi Pendapatan (Termasuk Pending) : Rp " + totalPotensiPendapatan);
+        System.out.println("--------------------------------------------------------------------------------------");
+        
+        System.out.println("\nTekan Enter untuk kembali ke menu...");
+        scanner.nextLine();
+
+    } catch (Exception e) {
+        System.out.println("[ERROR] Gagal memuat laporan: " + e.getMessage());
     }
+}
 
     private static void menuKelolaMobil() {
         System.out.println("\n--- SUB-MENU KELOLA MOBIL ---");
@@ -221,26 +258,61 @@ public class MainApplication {
         userDAO.save(baru);
     }
 
-    // =========================================================================
-    // DASHBOARD PETUGAS
-    // =========================================================================
-private static void dashboardPetugas() {
+    private static void dashboardPetugas() {
     boolean logout = false;
     while (!logout) {
         System.out.println("\n=== DASHBOARD PETUGAS: " + userLogged.getNama() + " ===");
-        System.out.println("1. Verifikasi Booking (Antrean)");
-        System.out.println("2. Proses Pengembalian Mobil"); // Menu baru
-        System.out.println("3. Tampilkan Info Saya");
-        System.out.println("4. Logout");
+        System.out.println("1. Verifikasi Ketersediaan (Status: Pending)"); // Tahap 1
+        System.out.println("2. Verifikasi Pembayaran (Status: Paid)");     // Tahap 2 (Baru)
+        System.out.println("3. Proses Pengembalian Mobil (Status: Rented)"); // Tahap 3
+        System.out.println("4. Tampilkan Info Saya");
+        System.out.println("5. Logout");
         System.out.print("Pilih: ");
         String pil = scanner.nextLine();
         
         switch (pil) {
             case "1": menuVerifikasiBooking(); break;
-            case "2": menuProsesPengembalian(); break; // Panggil method baru
-            case "3": userLogged.tampilkanInfo(); break;
-            case "4": logout = true; userLogged = null; break;
+            case "2": menuVerifikasiPembayaran(); break; // Method baru di bawah
+            case "3": menuProsesPengembalian(); break;
+            case "4": userLogged.tampilkanInfo(); break;
+            case "5": logout = true; userLogged = null; break;
         }
+    }
+}
+    
+    private static void menuVerifikasiPembayaran() {
+    try {
+        System.out.println("\n--- DAFTAR KONFIRMASI PEMBAYARAN (PAID) ---");
+        // Kamu perlu buat method findByStatus di BookingDAO
+        List<Booking> listPaid = bookingDAO.findByStatus("Paid");
+
+        if (listPaid.isEmpty()) {
+            System.out.println("Tidak ada pembayaran yang perlu diverifikasi.");
+            return;
+        }
+
+        for (Booking b : listPaid) {
+            System.out.println("ID Booking: " + b.getIdBooking() + 
+                               " | Pelanggan: " + b.getPelanggan().getNama() + 
+                               " | Total: Rp" + b.getTotalBiaya());
+        }
+
+        System.out.print("\nMasukkan ID Booking untuk Approve Pembayaran (0 batal): ");
+        int idB = Integer.parseInt(scanner.nextLine());
+
+        if (idB != 0) {
+            Booking bSelected = bookingDAO.findById(idB);
+            if (bSelected != null) {
+                // Update Booking jadi Approved
+                bookingDAO.updateStatus(idB, "Approved");
+                // Update Mobil jadi Rented (Mobil resmi dibawa pelanggan)
+                mobilDAO.updateStatus(bSelected.getMobil().getId(), "Rented");
+                
+                System.out.println("[SUCCESS] Pembayaran diterima. Mobil resmi berstatus RENTED.");
+            }
+        }
+    } catch (Exception e) {
+        System.out.println("Error: " + e.getMessage());
     }
 }
 
@@ -312,20 +384,17 @@ private static void menuProsesPengembalian() {
                 
                 String statusBaru = aksi.equals("1") ? "Approved" : "Rejected";
                 
-                // Ambil detail booking sebelum diupdate untuk mendapatkan mobil_id
                 Booking bSelected = bookingDAO.findById(idB);
                 
                 if (bSelected != null) {
-                    // 1. Update status booking di DB
                     bookingDAO.updateStatus(idB, statusBaru);
-                    
-                    // 2. Logika status mobil
-                    if (aksi.equals("1")) {
-                        mobilDAO.updateStatus(bSelected.getMobil().getId(), "Rented");
-                        System.out.println("[SUCCESS] Booking ID " + idB + " disetujui. Mobil status: Rented.");
+                  if (aksi.equals("1")) {
+                        bookingDAO.updateStatus(idB, "Waiting Payment"); // Jangan langsung Rented
+                        System.out.println("[SUCCESS] Booking disetujui. Menunggu pelanggan bayar.");
                     } else {
+                        bookingDAO.updateStatus(idB, "Rejected");
                         mobilDAO.updateStatus(bSelected.getMobil().getId(), "Ready");
-                        System.out.println("[SUCCESS] Booking ID " + idB + " ditolak. Mobil status: Ready.");
+                        System.out.println("[SUCCESS] Booking ditolak.");
                     }
                 } else {
                     System.out.println("[ERROR] ID Booking tidak ditemukan.");
@@ -336,33 +405,65 @@ private static void menuProsesPengembalian() {
         }
     }
 
-    // =========================================================================
-    // DASHBOARD PELANGGAN
-    // =========================================================================
-    private static void dashboardPelanggan() {
-        boolean logout = false;
-        while (!logout) {
-            System.out.println("\n=== DASHBOARD PELANGGAN: " + userLogged.getNama() + " ===");
-            System.out.println("1. Cari & Booking Mobil");
-            System.out.println("2. Tampilkan Info Saya");
-            System.out.println("3. Logout");
-            System.out.print("Pilih: ");
-            
-            String pil = scanner.nextLine();
-            switch (pil) {
-                case "1": prosesBookingMobil(); break;
-                case "2": userLogged.tampilkanInfo(); break;
-                case "3": 
-                    logout = true; 
-                    userLogged.logout(); 
-                    userLogged = null; 
-                    break;
-                default: System.out.println("Pilihan tidak valid!");
+    
+        //    ' ' ' DASHBOARD PELANGGAN ' ' '    
+        private static void dashboardPelanggan() {
+            boolean logout = false;
+            while (!logout) {
+                System.out.println("\n=== DASHBOARD PELANGGAN: " + userLogged.getNama() + " ===");
+                System.out.println("1. Cari & Booking Mobil");
+                System.out.println("2. Konfirmasi Pembayaran (Upload Bukti)");
+                System.out.println("3. Riwayat Booking & Cetak Struk"); // Menu baru
+                System.out.println("4. Tampilkan Info Saya");
+                System.out.println("5. Logout");
+                System.out.print("Pilih: ");
+
+                String pil = scanner.nextLine();
+                switch (pil) {
+                    case "1": prosesBookingMobil(); break;
+                    case "2": menuUploadPembayaran(); break;
+                    case "3": menuRiwayatDanStruk(); break; // Method baru di bawah
+                    case "4": userLogged.tampilkanInfo(); break;
+                    case "5": logout = true; userLogged = null; break;
+                }
             }
         }
-    }
+    
+private static void menuUploadPembayaran() {
+    try {
+        System.out.println("\n--- PEMBAYARAN BOOKING ---");
+        List<Booking> myBookings = bookingDAO.findBookingsByPelanggan(userLogged.getId());
+        
+        if (myBookings.isEmpty()) {
+            System.out.println("Anda tidak memiliki antrean pembayaran.");
+            return;
+        }
+        List<Integer> validIds = new ArrayList<>();
+        for (Booking b : myBookings) {
+            System.out.println("ID: " + b.getIdBooking() + " | Total: Rp" + b.getTotalBiaya() + " | Status: " + b.getStatus());
+            validIds.add(b.getIdBooking());
+        }
+        System.out.print("Masukkan ID Booking yang sudah dibayar: ");
+        int idB = Integer.parseInt(scanner.nextLine());
+        if (!validIds.contains(idB)) {
+            System.out.println("[ERROR] ID Booking salah atau bukan milik Anda!");
+            return; 
+        }
 
-    private static void prosesBookingMobil() {
+        System.out.print("Masukkan Nama Bank / Referensi Transfer: ");
+        String bukti = scanner.nextLine();
+
+        bookingDAO.updateStatus(idB, "Paid");
+        System.out.println("[SUCCESS] Konfirmasi pembayaran ID " + idB + " terkirim.");
+        
+    } catch (NumberFormatException e) {
+        System.out.println("[ERROR] Masukkan angka untuk ID Booking!");
+    } catch (Exception e) {
+        System.out.println("Error: " + e.getMessage());
+    }
+}
+
+private static void prosesBookingMobil() {
         try {
             System.out.println("\n--- DAFTAR MOBIL TERSEDIA (READY) ---");
             List<Mobil> listMobil = mobilDAO.findAvailableMobil();
@@ -397,11 +498,7 @@ private static void menuProsesPengembalian() {
 
                 Pelanggan p = (Pelanggan) userLogged;
                 Booking baru = new Booking(0, mulai, selesai, mSelected, p);
-                
-                // Simpan ke DB
                 bookingDAO.save(baru);
-                
-                // Ubah status mobil menjadi 'Booked'
                 mobilDAO.updateStatus(idMobil, "Booked");
 
                 System.out.println("\n[SUCCESS] Booking Berhasil Diajukan!");
@@ -415,4 +512,58 @@ private static void menuProsesPengembalian() {
             System.out.println("[ERROR] Booking gagal: " + e.getMessage());
         }
     }
+    
+    
+    
+    private static void menuRiwayatDanStruk() {
+    try {
+        System.out.println("\n--- RIWAYAT BOOKING SAYA ---");
+        List<Booking> myBookings = bookingDAO.findBookingsByPelanggan(userLogged.getId());
+
+        if (myBookings.isEmpty()) {
+            System.out.println("Anda belum memiliki riwayat booking.");
+            return;
+        }
+
+        for (Booking b : myBookings) {
+            System.out.println("ID: " + b.getIdBooking() + " | " + b.getMobil().getModel() + 
+                               " | Status: " + b.getStatus() + " | Total: Rp" + b.getTotalBiaya());
+        }
+
+        System.out.print("\nMasukkan ID Booking untuk cetak struk (0 untuk kembali): ");
+        int idB = Integer.parseInt(scanner.nextLine());
+
+        if (idB != 0) {
+            Booking bSelected = bookingDAO.findById(idB);
+            if (bSelected != null && bSelected.getPelanggan().getId() == userLogged.getId()) {
+                cetakStruk(bSelected);
+            } else {
+                System.out.println("[ERROR] Data tidak ditemukan atau akses ditolak.");
+            }
+        }
+    } catch (Exception e) {
+        System.out.println("Error: " + e.getMessage());
+    }
+}
+    
+private static void cetakStruk(Booking b) {
+    System.out.println("\n==========================================");
+    System.out.println("           NOTA RENTAL MOBIL              ");
+    System.out.println("==========================================");
+    System.out.println(" ID Booking   : " + b.getIdBooking());
+    System.out.println(" Tanggal      : " + LocalDate.now());
+    System.out.println("------------------------------------------");
+    System.out.println(" Pelanggan    : " + b.getPelanggan().getNama());
+    System.out.println(" Mobil        : " + b.getMobil().getMerek() + " " + b.getMobil().getModel());
+    System.out.println(" Plat Nomor   : " + b.getMobil().getNomorPlat());
+    System.out.println(" Durasi Sewa  : " + b.getTanggalMulai() + " s/d " + b.getTanggalSelesai());
+    System.out.println("------------------------------------------");
+    System.out.println(" HARGA SEWA   : Rp" + b.getMobil().getHargaSewaPerHari() + " /hari");
+    System.out.println(" TOTAL BAYAR  : Rp" + b.getTotalBiaya());
+    System.out.println(" STATUS       : " + b.getStatus());
+    System.out.println("==========================================");
+    System.out.println("     Terima Kasih Atas Kunjungan Anda     ");
+    System.out.println("    Harap Simpan Struk Ini Sebagai Bukti  ");
+    System.out.println("==========================================\n");
+}
 }

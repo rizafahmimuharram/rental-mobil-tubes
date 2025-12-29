@@ -7,8 +7,6 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 
 public class Booking {
-    
-   
     private int idBooking;
     private LocalDate tanggalBooking;
     private LocalDate tanggalMulai;
@@ -17,13 +15,11 @@ public class Booking {
     private double totalBiaya;
     private LocalDateTime waktuBatasBayar; 
 
-
     private Mobil mobil;         
     private Pelanggan pelanggan; 
     private Pembayaran pembayaran;
     private Pengembalian pengembalian; 
 
-    
     public Booking(int idBooking, LocalDate tanggalMulai, LocalDate tanggalSelesai, Mobil mobil, Pelanggan pelanggan) {
         this.idBooking = idBooking;
         this.tanggalMulai = tanggalMulai;
@@ -40,13 +36,10 @@ public class Booking {
     
 
     public int hitungDurasiSewa() {
-
         long days = ChronoUnit.DAYS.between(tanggalMulai, tanggalSelesai);
-        
         return (int) days + 1;
     }
 
- 
     public double hitungTotalBiaya() {
         int durasi = hitungDurasiSewa();
         // Delegasi perhitungan ke objek Mobil

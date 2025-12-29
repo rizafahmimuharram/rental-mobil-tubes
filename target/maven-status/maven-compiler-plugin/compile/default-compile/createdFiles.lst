@@ -17,6 +17,5 @@ com\rental\model\master\Mobil.class
 com\rental\model\transaksi\Booking.class
 com\rental\model\user\Petugas.class
 com\rental\service\CekKetersediaan.class
-com\rental\app\MainApp.class
 com\rental\model\transaksi\Pengembalian.class
 com\rental\model\transaksi\Pembayaran.class
